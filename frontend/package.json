@@ -1,0 +1,23 @@
+{
+  "name": "sgis-ucv-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.27",
+    "vuetify": "^3.6.6",
+    "@mdi/font": "^7.4.47",
+    "vue-router": "^4.3.2",
+    "pinia": "^2.1.7",
+    "axios": "^1.7.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.11",
+    "vite-plugin-vuetify": "^2.0.3"
+  }
+}

@@ -1,0 +1,39 @@
+# ── Entorno ───────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Python / Django ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv/
+venv/
+*.log
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+
+# ── Node / Vite ───────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+.pnpm-debug.log
+*.tsbuildinfo
+
+# ── Docker ────────────────────────────────────────────────────────
+pgdata/
+
+# ── IDE ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Vercel ────────────────────────────────────────────────────────
+.vercel/

@@ -1,0 +1,256 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ─── Design Tokens ─────────────────────────────────────────────── */
+:root {
+  --bg:         #F2F2F2;
+  --bg-2:       #EBEBEB;
+  --white:      #FFFFFF;
+  --black:      #0A0A0A;
+  --ink:        #111111;
+  --ink-2:      #3A3A3A;
+  --ink-3:      #6B6B6B;
+  --ink-4:      #9E9E9E;
+  --border:     #E2E2E2;
+  --border-hi:  #C8C8C8;
+  --border-inv: #2A2A2A;
+
+  --font: 'Inter', system-ui, sans-serif;
+
+  --radius:    4px;
+  --radius-lg: 6px;
+  --t:         120ms ease;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+body,
+.v-application,
+.v-application__wrap {
+  background-color: var(--bg) !important;
+  font-family: var(--font) !important;
+  color: var(--ink) !important;
+}
+
+/* ─── Grain texture overlay ──────────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.035;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 300px 300px;
+}
+
+/* ─── KPI Card ───────────────────────────────────────────────────── */
+.kpi-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 2rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.kpi-card:hover {
+  border-color: var(--border-hi);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+.kpi-card--accent { border-top: 2px solid var(--black); }
+
+.kpi-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 0.85rem;
+}
+.kpi-value {
+  font-size: 3.75rem;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.6rem;
+}
+.kpi-value--muted { color: var(--ink-3); }
+.kpi-sub {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--ink-4);
+  line-height: 1.4;
+}
+
+/* ─── Section headers ────────────────────────────────────────────── */
+.section-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+/* ─── Bar rows ───────────────────────────────────────────────────── */
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.bar-row__label {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--ink-2);
+  width: 9.5rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar-row__track {
+  flex: 1;
+  height: 2px;
+  background: var(--bg-2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.bar-row__fill {
+  height: 100%;
+  background: var(--black);
+  border-radius: 99px;
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bar-row__count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  width: 1.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Status blocks ──────────────────────────────────────────────── */
+.status-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  gap: 0.3rem;
+  transition: background var(--t);
+}
+.status-block:hover { background: var(--white); }
+.status-block__count {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.status-block__label {
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* ─── Panel card ─────────────────────────────────────────────────── */
+.panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+.panel-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 1.25rem;
+}
+
+/* ─── Status dot ─────────────────────────────────────────────────── */
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #2D9A46;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ─── Data table overrides ───────────────────────────────────────── */
+.v-data-table {
+  background: var(--white) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  font-family: var(--font) !important;
+}
+.v-data-table-header__content {
+  font-size: 0.62rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-3) !important;
+  font-family: var(--font) !important;
+}
+.v-data-table__tr:hover td {
+  background: var(--bg) !important;
+}
+.v-data-table__td {
+  border-bottom: 1px solid var(--border) !important;
+  font-size: 0.85rem !important;
+  color: var(--ink-2) !important;
+  font-family: var(--font) !important;
+}
+
+/* ─── Form fields ────────────────────────────────────────────────── */
+.v-field {
+  background: var(--white) !important;
+  border-radius: var(--radius) !important;
+  font-family: var(--font) !important;
+}
+.v-field__outline__start,
+.v-field__outline__end,
+.v-field__outline__notch { border-color: var(--border) !important; }
+.v-field--focused .v-field__outline__start,
+.v-field--focused .v-field__outline__end,
+.v-field--focused .v-field__outline__notch { border-color: var(--ink) !important; }
+.v-label { color: var(--ink-3) !important; font-family: var(--font) !important; font-size: 0.875rem !important; }
+.v-field__input { color: var(--ink) !important; font-family: var(--font) !important; }
+
+/* ─── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+/* ─── Utility ────────────────────────────────────────────────────── */
+.no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2.5rem 0;
+  color: var(--ink-4);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

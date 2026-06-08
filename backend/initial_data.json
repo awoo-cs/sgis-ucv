@@ -1,0 +1,59 @@
+[
+  {
+    "model": "accounts.customuser",
+    "pk": 1,
+    "fields": {
+      "username": "admin.ti",
+      "password": "pbkdf2_sha256$720000$L1aNoL47S355$5G50E8XOf6qN5XNymFtJGI7VCknsOB78/SLJioMdg2o=",
+      "email": "admin@ucv.edu.pe",
+      "first_name": "Admin",
+      "last_name": "TI",
+      "role": "admin_ti",
+      "is_staff": true,
+      "is_superuser": true,
+      "is_active": true,
+      "date_joined": "2026-01-01T00:00:00Z",
+      "last_login": null,
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "accounts.customuser",
+    "pk": 2,
+    "fields": {
+      "username": "analista",
+      "password": "pbkdf2_sha256$720000$L1aNoL47S355$5G50E8XOf6qN5XNymFtJGI7VCknsOB78/SLJioMdg2o=",
+      "email": "analista@ucv.edu.pe",
+      "first_name": "Ana",
+      "last_name": "Seguridad",
+      "role": "analista",
+      "is_staff": false,
+      "is_superuser": false,
+      "is_active": true,
+      "date_joined": "2026-01-01T00:00:00Z",
+      "last_login": null,
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "accounts.customuser",
+    "pk": 3,
+    "fields": {
+      "username": "jefe.area",
+      "password": "pbkdf2_sha256$720000$L1aNoL47S355$5G50E8XOf6qN5XNymFtJGI7VCknsOB78/SLJioMdg2o=",
+      "email": "jefe@ucv.edu.pe",
+      "first_name": "Jefe",
+      "last_name": "Área",
+      "role": "jefe_area",
+      "is_staff": false,
+      "is_superuser": false,
+      "is_active": true,
+      "date_joined": "2026-01-01T00:00:00Z",
+      "last_login": null,
+      "groups": [],
+      "user_permissions": []
+    }
+  }
+]
