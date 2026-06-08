@@ -1,0 +1,1 @@
+web: python manage.py makemigrations accounts incidents action_plans && python manage.py migrate && python manage.py loaddata initial_data.json 2>/dev/null; python manage.py create_demo_data 2>/dev/null; gunicorn sgis.wsgi:application --bind 0.0.0.0:$PORT --workers 2
