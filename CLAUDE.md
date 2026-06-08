@@ -76,17 +76,18 @@ Seed: `backend/initial_data.json` vía `loaddata`. Datos demo: `create_demo_data
 
 ```
 dev  ──── trabajo diario, features, fixes ────► PR ──► main
-                                                        │
-                                          Vercel deploya automáticamente
+ │                                                       │
+ └─► Vercel preview automático                Vercel producción automático
+     (URL única por commit)                   (sgis-ucv.vercel.app)
 ```
 
-- **`dev`** → rama de trabajo. Todo commit va aquí.
+- **`dev`** → rama de trabajo. Todo commit genera un preview en Vercel automáticamente.
 - **`main`** → producción. Merge **solo cuando el profesor lo indique explícitamente**.
-- Cada push a `main` dispara deploy automático en Vercel.
+- La integración GitHub-Vercel está activa: no se necesita el CLI para deploys normales.
 
 ```bash
 git checkout dev               # siempre trabajar aquí
-git push origin dev            # push normal
+git push origin dev            # → genera preview en Vercel automáticamente
 # Para producción: merge dev → main (pedir permiso primero)
 ```
 
@@ -96,16 +97,28 @@ git push origin dev            # push normal
 
 ### Vercel (frontend)
 
-- **Proyecto:** `awoo-cs-projects/sgis-ucv`
+- **Proyecto:** `awoo-cs-projects/sgis-ucv` (ID: `prj_CN2nuq9XWHl52z1x3FgRYlHbo7xS`)
 - **Dashboard:** https://vercel.com/awoo-cs-projects/sgis-ucv
-- **Build:** `npm run build` desde `frontend/`, output en `dist/`
-- **Env var clave:** `VITE_API_BASE_URL=https://backend-production-7cfc1.up.railway.app/api`
-- **Rewrites:** `/(.*) → /index.html` (SPA routing — sin esto, F5 da 404)
-- **VITE_ vars se bakean en build time** — cambiar una variable requiere redeploy
+- **GitHub conectado:** `awoo-cs/sgis-ucv` — rama `main` → producción, resto → preview
+- **Root directory:** `frontend/`
+- **Build:** `npm run build`, output `dist/`
+- **Rewrites:** `/(.*) → /index.html` en `vercel.json` (SPA routing — sin esto, F5 da 404)
+- **`VITE_API_BASE_URL`** configurada para `Production` **y** `Preview` → apunta al backend Railway
 
-Redeploy manual desde el directorio `frontend/`:
+> **Crítico — VITE_ vars se bakean en build time:** Vite incrusta `import.meta.env.VITE_*` en el JS al compilar. Si se cambia el valor en el dashboard de Vercel, hay que forzar un redeploy (push vacío o desde el dashboard). No es suficiente con cambiar la variable.
+
+Redeploy manual de emergencia (si el auto-deploy falla):
 ```bash
+cd frontend/
 VERCEL_TOKEN=<token> npx vercel --prod --token <token> --yes --scope awoo-cs-projects
+```
+
+Añadir/actualizar una env var via API (sin CLI):
+```bash
+# Crear
+curl -X POST "https://api.vercel.com/v10/projects/prj_CN2nuq9XWHl52z1x3FgRYlHbo7xS/env?teamId=team_VkCUhWzVttjtzJlH5qUVPFKb" \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"key":"VITE_API_BASE_URL","value":"<url>","type":"plain","target":["production","preview"]}'
 ```
 
 ### Railway (backend + DB)
@@ -293,14 +306,15 @@ Flujo unidireccional. Un incidente `cerrado` no puede modificarse (RNF8). Cada c
 
 | Problema | Causa | Solución |
 |----------|-------|----------|
-| Login falla en Vercel | `VITE_API_BASE_URL` no estaba en el build de producción | Siempre usar `--prod` al redeplegar si se cambia una env var |
-| `railway` no encontrado | Binario en `~/.railway/bin/` sin estar en PATH | `export PATH="$HOME/.railway/bin:$PATH"` |
-| Container Railway sale inmediatamente | Railpack no detecta Python si se sube el root en vez de `backend/` | Usar `railway up ./backend --path-as-root` |
+| "Credenciales incorrectas" en Vercel (prod o preview) | `VITE_API_BASE_URL` no incluida en ese build — Vite la bakea en compile time | Verificar que la var existe en el scope correcto (Production y Preview) y forzar rebuild |
+| Preview de Vercel sin la variable aunque ya existe en dashboard | El build ya estaba corriendo cuando se añadió la variable | Push vacío: `git commit --allow-empty -m "rebuild" && git push origin dev` |
+| Dashboard Vercel muestra "Connect Git Repository" | Proyecto creado con `npx vercel` (direct upload), sin integración Git | Conectar via API: `POST /v9/projects/{id}/link` con type=github |
+| `railway` no encontrado en terminal | Binario instalado en `~/.railway/bin/` sin estar en PATH del shell | `export PATH="$HOME/.railway/bin:$PATH"` (agregar al `.bashrc` para persistir) |
+| Container Railway sale inmediatamente (exited:1) | `railway up` desde el root sube todo el repo — Railpack no detecta Python | Usar `railway up ./backend --path-as-root --service backend` |
 | `docker compose` no encontrado | Plugin no instalado | `sudo pacman -S docker-compose` |
 | `permission denied /var/run/docker.sock` | Daemon inactivo | `sudo systemctl start docker` |
-| DB con datos incorrectos | Volumen de arranque previo con config errónea | `docker compose down -v && docker compose up --build` |
-| `loaddata` falla silenciosamente | PKs duplicados en arranques repetidos | Esperado; el `\|\| true` lo ignora |
-| VITE_ vars vacías en producción | Se bakean en build time, no en runtime | Redeploy requerido tras cambiar cualquier `VITE_*` |
+| DB con datos incorrectos al levantar | Volumen `pgdata` de arranque previo con config diferente | `docker compose down -v && docker compose up --build` |
+| `loaddata` falla silenciosamente | PKs duplicados en arranques repetidos | Esperado; el `|| true` en el CMD lo ignora sin romper el startup |
 
 ---
 
