@@ -1,1 +1,1 @@
-web: python manage.py migrate --noinput && (python manage.py loaddata initial_data.json 2>/dev/null; python manage.py create_demo_data 2>/dev/null; exec gunicorn sgis.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 2 --timeout 120 --log-level info)
+web: exec gunicorn sgis.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 2 --timeout 120 --log-level debug
