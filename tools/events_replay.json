@@ -1,0 +1,18 @@
+[
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 2121, "detail": "Conexión a ftp", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 2222, "detail": "Conexión a ssh", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 8080, "detail": "Conexión a http", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 8443, "detail": "Conexión a https", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 3306, "detail": "Conexión a mysql", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 5432, "detail": "Conexión a postgres", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 3389, "detail": "Conexión a rdp", "wait": 0.35},
+  {"event_type": "connection", "source_ip": "192.0.2.50", "dest_port": 1433, "detail": "Conexión a mssql", "wait": 1.0},
+
+  {"event_type": "auth_failure", "source_ip": "192.0.2.99", "dest_port": 2222, "username": "admin", "detail": "Intento de login: admin:123456", "wait": 0.4},
+  {"event_type": "auth_failure", "source_ip": "192.0.2.99", "dest_port": 2222, "username": "root", "detail": "Intento de login: root:password", "wait": 0.4},
+  {"event_type": "auth_failure", "source_ip": "192.0.2.99", "dest_port": 2222, "username": "administrator", "detail": "Intento de login: administrator:admin", "wait": 0.4},
+  {"event_type": "auth_failure", "source_ip": "192.0.2.99", "dest_port": 2222, "username": "postgres", "detail": "Intento de login: postgres:qwerty", "wait": 0.4},
+  {"event_type": "auth_failure", "source_ip": "192.0.2.99", "dest_port": 2222, "username": "oracle", "detail": "Intento de login: oracle:root123", "wait": 1.0},
+
+  {"event_type": "connection", "source_ip": "203.0.113.66", "dest_port": 8080, "detail": "Conexión a http", "wait": 0.5}
+]

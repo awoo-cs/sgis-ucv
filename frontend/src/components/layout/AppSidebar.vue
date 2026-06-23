@@ -49,6 +49,7 @@ const route = useRoute()
 
 const navItems = computed(() => [
   { title: 'Dashboard',        to: '/dashboard',        icon: 'mdi-view-dashboard-outline' },
+  { title: 'Centro de Ops',    to: '/operations',       icon: 'mdi-radar' },
   { title: 'Incidentes',       to: '/incidents',        icon: 'mdi-alert-circle-outline' },
   ...(auth.canCreateIncident
     ? [{ title: 'Registrar',   to: '/incidents/create', icon: 'mdi-plus-circle-outline' }]

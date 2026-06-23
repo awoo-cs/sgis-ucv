@@ -8,6 +8,14 @@ Plataforma web para el Centro de Cómputo de la Universidad César Vallejo (UCV)
 
 ---
 
+## Estado y roadmap
+
+- **2026-06-17** — Presentada la V1 (demo) al docente. Veredicto: idea buena pero proyecto **muy simple** → hacer una **V1.1 "remasterizada"**.
+- **Próximas features a planear** (aún sin diseñar): generación automática de reportes de incidentes a partir de eventos de un **firewall**, y **planes de acción automáticos** más completos.
+- Informe de justificación técnica entregado al docente: `../Informe_Justificacion_Tecnica_SGIS-UCV.docx`.
+
+---
+
 ## URLs de producción
 
 | Servicio | URL |
@@ -197,10 +205,24 @@ sgis-ucv/
 │       │   ├── serializers.py
 │       │   ├── views.py
 │       │   └── urls.py
-│       └── reports/                         ← Exportación PDF (RF9)
-│           ├── pdf_generator.py             ← ReportLab: tabla coloreada por criticidad
-│           ├── views.py
-│           └── urls.py
+│       ├── reports/                         ← Exportación PDF (RF9)
+│       │   ├── pdf_generator.py             ← ReportLab: tabla coloreada por criticidad
+│       │   ├── views.py
+│       │   └── urls.py
+│       └── ingest/                          ← Mini-SIEM V1.1: ingesta + motor de reglas
+│           ├── models.py                    ← SecurityEvent (evento crudo del sensor)
+│           ├── detection.py                 ← Motor: 3 reglas → incidente automático
+│           ├── serializers.py
+│           ├── views.py                     ← POST events (API-key) + GET feed (JWT)
+│           ├── urls.py
+│           └── tests.py                     ← Tests del motor de detección
+│
+├── tools/                                   ← Demo del mini-SIEM (solo stdlib, sin pip)
+│   ├── sensor.py                            ← Honeypot: escucha puertos y reporta (--replay)
+│   ├── attacker.py                          ← Atacante gemelo Python (Linux/Mac)
+│   ├── attacker.ps1                         ← Atacante PowerShell nativo (Windows)
+│   ├── events_replay.json                   ← Ataque pregrabado (demo sin red)
+│   └── README.md                            ← Runbook de la demo
 │
 └── frontend/
     ├── Dockerfile                           ← Solo para dev local
@@ -222,6 +244,7 @@ sgis-ucv/
         ├── views/
         │   ├── LoginView.vue                ← Split layout: panel negro + formulario blanco
         │   ├── DashboardView.vue            ← KPI cards + barras por tipo/criticidad/estado
+        │   ├── OperationsView.vue           ← Centro de Operaciones en vivo (poll feed 2s)
         │   ├── incidents/
         │   │   ├── IncidentListView.vue     ← Tabla con filtros en tiempo real
         │   │   ├── IncidentCreateView.vue
@@ -278,6 +301,8 @@ Flujo unidireccional. Un incidente `cerrado` no puede modificarse (RNF8). Cada c
 | `GET` | `/api/incidents/dashboard/` | Métricas del dashboard |
 | `GET/PATCH` | `/api/action-plans/{id}/` | Ver / editar plan de acción |
 | `GET` | `/api/reports/pdf/` | Exportar PDF (acepta mismos filtros que `/incidents/`) |
+| `POST` | `/api/ingest/events/` | Ingesta de un evento del sensor — **autentica con `X-API-Key`** (no JWT) |
+| `GET` | `/api/ingest/feed/` | Estado en vivo del Centro de Operaciones (counts + eventos + incidentes) |
 
 ### Cambio de estado via PATCH
 ```json
@@ -286,6 +311,32 @@ Flujo unidireccional. Un incidente `cerrado` no puede modificarse (RNF8). Cada c
 
 ### Filtros en `/api/incidents/`
 `status`, `criticality`, `incident_type`, `affected_area__icontains`, `assigned_to`, `created_by`, `detected_from`, `detected_to`, `search`
+
+---
+
+## Mini-SIEM (V1.1) — detección automática de incidentes
+
+Responde a la crítica del docente ("muy simple" + "el encargado no debería crear los incidentes a mano"): los incidentes ahora se generan **solos** a partir de eventos de red. Todo construido sin librerías de terceros (motor de reglas propio, sensor y atacante en stdlib) para poder explicarlo línea por línea.
+
+```
+atacante → (TCP) → sensor → (HTTP + X-API-Key) → /api/ingest/events/
+                                                        │
+                                         motor de reglas (apps/ingest/detection.py)
+                                                        │
+                                  Incidente automático (reusa generate_action_plan)
+                                                        │
+                                       Centro de Operaciones (frontend, en vivo)
+```
+
+- **App `ingest`** — no toca nada de la V1. `SecurityEvent` guarda el evento crudo; `detection.py` lo evalúa.
+- **3 reglas** (umbrales en `detection.py`): `port_scan` (≥8 puertos/30s), `brute_force` (≥5 logins fallidos/60s), `blacklist_ip` (IP en `INGEST_BLACKLIST`).
+- Incidentes auto-creados por el usuario de sistema **`sensor`** (sin contraseña usable). Anti-duplicados: un incidente abierto por par (regla, IP).
+- **Auth del endpoint de ingesta:** clave estática `INGEST_API_KEY` en cabecera `X-API-Key` (comparación en tiempo constante), sin JWT ni CSRF. El feed sí va con JWT.
+- **Demo:** ver `tools/README.md`. Garantía a prueba de firewall del salón → `python tools/sensor.py --replay --target <backend>`.
+
+```bash
+docker compose exec backend python manage.py test apps.ingest   # tests del motor
+```
 
 ---
 
@@ -299,22 +350,6 @@ Flujo unidireccional. Un incidente `cerrado` no puede modificarse (RNF8). Cada c
 - Dashboard: KPI números Inter ExtraBold 3.75rem, barras de 2px, skeletons en carga
 - Sidebar: ítem activo = inversión negro/blanco
 - StatusChip: dot indicador coloreado · CriticalityChip: escala de grises
-
----
-
-## Gotchas conocidos
-
-| Problema | Causa | Solución |
-|----------|-------|----------|
-| "Credenciales incorrectas" en Vercel (prod o preview) | `VITE_API_BASE_URL` no incluida en ese build — Vite la bakea en compile time | Verificar que la var existe en el scope correcto (Production y Preview) y forzar rebuild |
-| Preview de Vercel sin la variable aunque ya existe en dashboard | El build ya estaba corriendo cuando se añadió la variable | Push vacío: `git commit --allow-empty -m "rebuild" && git push origin dev` |
-| Dashboard Vercel muestra "Connect Git Repository" | Proyecto creado con `npx vercel` (direct upload), sin integración Git | Conectar via API: `POST /v9/projects/{id}/link` con type=github |
-| `railway` no encontrado en terminal | Binario instalado en `~/.railway/bin/` sin estar en PATH del shell | `export PATH="$HOME/.railway/bin:$PATH"` (agregar al `.bashrc` para persistir) |
-| Container Railway sale inmediatamente (exited:1) | `railway up` desde el root sube todo el repo — Railpack no detecta Python | Usar `railway up ./backend --path-as-root --service backend` |
-| `docker compose` no encontrado | Plugin no instalado | `sudo pacman -S docker-compose` |
-| `permission denied /var/run/docker.sock` | Daemon inactivo | `sudo systemctl start docker` |
-| DB con datos incorrectos al levantar | Volumen `pgdata` de arranque previo con config diferente | `docker compose down -v && docker compose up --build` |
-| `loaddata` falla silenciosamente | PKs duplicados en arranques repetidos | Esperado; el `|| true` en el CMD lo ignora sin romper el startup |
 
 ---
 

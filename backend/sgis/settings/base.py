@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'apps.incidents',
     'apps.action_plans',
     'apps.reports',
+    'apps.ingest',
 ]
 
 MIDDLEWARE = [
@@ -113,3 +114,14 @@ SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
 }
+
+# ── Ingesta de eventos / mini-SIEM (V1.1) ─────────────────────────────
+# El sensor autentica con esta clave en la cabecera X-API-Key.
+INGEST_API_KEY = config('INGEST_API_KEY', default='dev-sensor-key-change-me')
+# IPs en lista negra (coma-separadas). El motor las marca al instante.
+# Defaults = rangos TEST-NET (RFC 5737), no enrutables, solo para demo.
+INGEST_BLACKLIST = [
+    ip.strip() for ip in
+    config('INGEST_BLACKLIST', default='203.0.113.66,198.51.100.7').split(',')
+    if ip.strip()
+]

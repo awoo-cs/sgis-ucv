@@ -23,6 +23,11 @@ const routes = [
         component: () => import('@/views/DashboardView.vue'),
       },
       {
+        path: 'operations',
+        name: 'Operations',
+        component: () => import('@/views/OperationsView.vue'),
+      },
+      {
         path: 'incidents',
         name: 'IncidentList',
         component: () => import('@/views/incidents/IncidentListView.vue'),

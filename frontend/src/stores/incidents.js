@@ -62,9 +62,14 @@ export const useIncidentStore = defineStore('incidents', () => {
     return data
   }
 
+  async function fetchOperationsFeed() {
+    const { data } = await axios.get('/ingest/feed/')
+    return data
+  }
+
   return {
     incidents, currentIncident, metrics, loading, total,
     fetchIncidents, fetchIncident, createIncident, updateIncident,
-    addComment, fetchMetrics, updateActionPlan,
+    addComment, fetchMetrics, updateActionPlan, fetchOperationsFeed,
   }
 })
