@@ -15,7 +15,7 @@ import random
 
 from apps.incidents.models import Incident, IncidentStatusHistory, IncidentComment
 from apps.action_plans.models import ActionPlan
-from apps.action_plans.plan_templates import get_steps_for_incident
+from apps.action_plans.plan_templates import build_steps
 
 User = get_user_model()
 
@@ -533,7 +533,7 @@ class Command(BaseCommand):
                 try:
                     ActionPlan.objects.create(
                         incident=incident,
-                        steps=get_steps_for_incident(inc_type, criticality),
+                        steps=build_steps(inc_type, criticality),
                     )
                 except Exception:
                     pass

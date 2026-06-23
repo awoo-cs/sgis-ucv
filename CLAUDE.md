@@ -268,14 +268,21 @@ sgis-ucv/
 | Valor DB | Descripción | Permisos |
 |----------|-------------|----------|
 | `admin_ti` | Administrador TI | Todo: usuarios, asignación, gestión completa |
-| `analista` | Analista de Seguridad | Crear y gestionar incidentes, editar planes |
-| `jefe_area` | Jefe de Área | Solo lectura — dashboard y reportes |
+| `analista` | Analista de Seguridad | Gestiona incidentes y el checklist; avanza hasta `resuelto` (no puede cerrar) |
+| `jefe_area` | Jefe de Área | Lectura + **valida el cierre** (`resuelto → cerrado`); no edita campos |
 
 ### Ciclo de vida de un incidente (RF5)
 ```
 abierto → en_investigacion → resuelto → cerrado
+         (analista)           (analista)   (jefe_area / admin_ti = validación)
 ```
 Flujo unidireccional. Un incidente `cerrado` no puede modificarse (RNF8). Cada cambio de estado crea un registro `IncidentStatusHistory` inmutable.
+
+**Workflow por rol (V1.1)** — responde a la crítica "los roles no están claros". El cierre es una **validación**: solo `jefe_area` o `admin_ti` pueden pasar de `resuelto` a `cerrado`, y `jefe_area` no puede tocar ningún otro campo. Se enforza en `IncidentUpdateSerializer.validate()` + permiso `CanUpdateOrValidateIncident`.
+
+**SLA automático (V1.1)** — el plazo ya no se digita: se deriva de la criticidad (`incidents/sla.py`): crítico 4h · alto 24h · medio 72h · bajo 168h. Estado calculado contra el historial: `en_plazo` / `en_riesgo` / `vencido` / `cumplido` / `incumplido`. Expuesto en `GET /api/incidents/{id}/` (campo `sla`).
+
+**Plan de acción = checklist (V1.1)** — `ActionPlan.steps` pasó de `list[str]` a `list[{text, done, done_by, done_at, evidence}]`. Marcar un paso sella quién/cuándo en el servidor (no se confía en el cliente). El plan se expone anidado en el detalle del incidente (`action_plan` con `progress`).
 
 ### Tipos de incidente
 `malware` · `acceso_no_autorizado` · `phishing` · `fuga_datos` · `fallo_configuracion` · `otro`

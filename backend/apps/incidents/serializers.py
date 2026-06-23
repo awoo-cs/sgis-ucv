@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from apps.accounts.serializers import UserSerializer
+from apps.action_plans.serializers import ActionPlanSerializer
 from .models import Incident, IncidentStatusHistory, IncidentComment
+from .sla import compute_sla
 
 
 class IncidentStatusHistorySerializer(serializers.ModelSerializer):
@@ -54,10 +56,15 @@ class IncidentDetailSerializer(serializers.ModelSerializer):
     incident_type_display = serializers.CharField(source='get_incident_type_display', read_only=True)
     status_history = IncidentStatusHistorySerializer(many=True, read_only=True)
     comments = IncidentCommentSerializer(many=True, read_only=True)
+    action_plan = ActionPlanSerializer(read_only=True)
+    sla = serializers.SerializerMethodField()
 
     class Meta:
         model = Incident
         fields = '__all__'
+
+    def get_sla(self, obj):
+        return compute_sla(obj)
 
 
 class IncidentCreateSerializer(serializers.ModelSerializer):
@@ -99,6 +106,29 @@ class IncidentUpdateSerializer(serializers.ModelSerializer):
         incident = self.instance
         if incident and incident.is_closed:
             raise serializers.ValidationError("Un incidente cerrado no puede modificarse.")
+
+        # ── Workflow por rol (V1.1) ──────────────────────────────────────
+        role = self.context['request'].user.role
+        new_status = attrs.get('new_status')
+
+        # Jefe de Área: su único poder es VALIDAR el cierre. Nada de editar.
+        if role == 'jefe_area':
+            otros = [k for k in attrs if k not in ('new_status', 'status_comment')]
+            if otros or new_status != Incident.CERRADO:
+                raise serializers.ValidationError(
+                    "El Jefe de Área solo puede validar el cierre de un incidente resuelto."
+                )
+
+        # Cerrar = validar: solo Jefe de Área o Admin TI, y solo desde 'resuelto'.
+        if new_status == Incident.CERRADO:
+            if role not in ('jefe_area', 'admin_ti'):
+                raise serializers.ValidationError(
+                    "Solo el Jefe de Área o el Administrador TI pueden cerrar (validar) un incidente."
+                )
+            if incident and incident.status != Incident.RESUELTO:
+                raise serializers.ValidationError(
+                    "Solo se puede cerrar un incidente que esté en estado Resuelto."
+                )
         return attrs
 
     def update(self, instance, validated_data):

@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.accounts.permissions import IsAdminTIOrAnalista
+from apps.accounts.permissions import IsAdminTIOrAnalista, CanUpdateOrValidateIncident
 from apps.action_plans.plan_templates import generate_action_plan
 from .filters import IncidentFilter
 from .models import Incident, IncidentComment
@@ -51,7 +51,9 @@ class IncidentDetailView(generics.RetrieveUpdateAPIView):
 
     def get_permissions(self):
         if self.request.method in ('PUT', 'PATCH'):
-            return [IsAdminTIOrAnalista()]
+            # jefe_area también entra (solo para validar el cierre); el detalle
+            # de qué puede hacer cada rol lo decide IncidentUpdateSerializer.
+            return [CanUpdateOrValidateIncident()]
         return [IsAuthenticated()]
 
 

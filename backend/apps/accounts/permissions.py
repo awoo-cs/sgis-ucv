@@ -18,6 +18,16 @@ class IsJefeArea(BasePermission):
         return request.user.is_authenticated and request.user.is_jefe_area
 
 
+class CanUpdateOrValidateIncident(BasePermission):
+    """admin_ti y analista gestionan; jefe_area solo valida el cierre.
+
+    Quién puede hacer qué exactamente lo afina IncidentUpdateSerializer.validate().
+    """
+    def has_permission(self, request, view):
+        u = request.user
+        return u.is_authenticated and u.role in ('admin_ti', 'analista', 'jefe_area')
+
+
 class ReadOnly(BasePermission):
     def has_permission(self, request, view):
         return request.method in ('GET', 'HEAD', 'OPTIONS')

@@ -97,7 +97,19 @@ def get_steps_for_incident(incident_type: str, criticality: str) -> list[str]:
     return steps
 
 
+def new_step(text: str) -> dict:
+    """Un paso del checklist: texto + estado de avance + evidencia (V1.1)."""
+    return {'text': text, 'done': False, 'done_by': None, 'done_at': None, 'evidence': ''}
+
+
+def build_steps(incident_type: str, criticality: str) -> list[dict]:
+    """Pasos del plan ya en forma de checklist (lista de dicts)."""
+    return [new_step(s) for s in get_steps_for_incident(incident_type, criticality)]
+
+
 def generate_action_plan(incident) -> None:
     from apps.action_plans.models import ActionPlan
-    steps = get_steps_for_incident(incident.incident_type, incident.criticality)
-    ActionPlan.objects.create(incident=incident, steps=steps)
+    ActionPlan.objects.create(
+        incident=incident,
+        steps=build_steps(incident.incident_type, incident.criticality),
+    )
