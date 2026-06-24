@@ -37,3 +37,9 @@ Thumbs.db
 
 # ── Vercel ────────────────────────────────────────────────────────
 .vercel/
+
+# Video de respaldo de la demo (binario, no versionar)
+demo/
+
+# Artefactos de Playwright MCP
+.playwright-mcp/
