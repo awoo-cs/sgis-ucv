@@ -43,3 +43,6 @@ demo/
 
 # Artefactos de Playwright MCP
 .playwright-mcp/
+
+# Memoria privada del agente (no versionar)
+MEMORY.md
