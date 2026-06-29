@@ -1,0 +1,38 @@
+KIT DE DEMO — SGIS-UCV
+======================
+
+Qué es: un mini-tablero para preparar cada laptop del salón con un par de clics.
+
+PASOS
+-----
+1. Copia esta carpeta (tools/) completa a la laptop.
+2. Doble clic en  Iniciar.bat
+3. Elige el ROL de esta laptop:  Atacante  /  Sensor  /  Operador
+4. Pega la API Key real de la demo en el campo "API Key" (si no, usa la de prueba).
+
+SEGÚN EL ROL
+------------
+SENSOR  (necesita Python instalado — es la ÚNICA que lo necesita)
+   - Anota la "IP LAN" que muestra la ventana: ESA es la que teclea el Atacante.
+   - "Iniciar sensor (firewall REAL)"  → pide permiso de administrador (UAC) y
+                                          bloquea de verdad al atacante con netsh.
+   - "Iniciar sensor (solo app)"       → corta la conexión a nivel de aplicación
+                                          (sin permisos de administrador).
+
+ATACANTE  (no instala nada — PowerShell nativo de Windows)
+   - Escribe la IP LAN del Sensor.
+   - "Escaneo de puertos"   → dispara la regla de reconocimiento.
+   - "Ataque completo"      → escaneo + fuerza bruta (levanta 2 incidentes).
+
+OPERADOR  (no instala nada — solo navegador)
+   - "Abrir Centro de Operaciones" → proyecta el tablero en vivo.
+   - "Mostrar credenciales demo"   → usuarios y contraseña de prueba.
+
+REPARTO SUGERIDO
+----------------
+   Laptop 1 (tuya/compañero, con Python) ....... SENSOR
+   Laptop 2 (compañero) ........................ OPERADOR  (proyecta)
+   Laptop 3 y 4 (las que no controlas) ......... ATACANTE
+
+Credenciales demo — contraseña:  Sgis2026*
+   admin.ti  ·  analista  ·  jefe.area
