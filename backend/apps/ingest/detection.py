@@ -17,7 +17,8 @@ from django.utils import timezone
 
 from apps.incidents.models import Incident, IncidentStatusHistory
 from apps.action_plans.plan_templates import generate_action_plan
-from .models import SecurityEvent
+from .models import SecurityEvent, BlockedIP
+from .notifications import dispatch_incident_alert
 
 # ── Perillas de calibración ───────────────────────────────────────────
 PORT_SCAN_PORTS = 8        # nº de puertos distintos…
@@ -145,10 +146,43 @@ def _fire(rule, event, *, incident_type, criticality, title, description):
             comment=f"Incidente generado automáticamente por el motor de detección (regla: {rule}).",
         )
         generate_action_plan(incident)  # RF6: mismo plan automático que la V1
+        dispatch_incident_alert(incident)  # Playbook SOAR: notifica al equipo por email (async)
+
+    # ── Contención automática (V1.2 SOAR): bloquear la IP atacante ──────
+    # No basta detectar: el sistema ACTÚA. Metemos la IP en la lista de bloqueo
+    # que el sensor consulta y aplica; la conexión del atacante se corta en vivo.
+    blocked = _contain(event.source_ip, rule, incident, reason=title)
+    if created:
+        # Sella en el bloqueo que la alerta salió → el tablero pinta "Notificar ✓".
+        BlockedIP.objects.filter(source_ip=event.source_ip).update(alerted_at=timezone.now())
 
     event.is_alert = True
     event.rule = rule
     event.triggered_incident = incident
     event.save(update_fields=['is_alert', 'rule', 'triggered_incident'])
 
-    return {'rule': rule, 'incident_id': incident.id, 'incident_created': created}
+    return {
+        'rule': rule, 'incident_id': incident.id,
+        'incident_created': created, 'blocked_ip': blocked,
+    }
+
+
+def _contain(ip, rule, incident, *, reason):
+    """Da de alta (o reactiva) el bloqueo de `ip`. Idempotente. Devuelve la IP o None."""
+    obj, created = BlockedIP.objects.get_or_create(
+        source_ip=ip,
+        defaults={'rule': rule, 'reason': reason[:255], 'incident': incident, 'active': True},
+    )
+    if not created and not obj.active:
+        obj.active = True
+        obj.released_at = None
+        obj.save(update_fields=['active', 'released_at'])
+        created = True  # se volvió a contener → vale la pena anotarlo
+
+    if created:
+        IncidentStatusHistory.objects.create(
+            incident=incident, previous_status=incident.status, new_status=incident.status,
+            changed_by=get_sensor_user(),
+            comment=f"Contención automática (SOAR): IP {ip} bloqueada en el perímetro.",
+        )
+    return ip
