@@ -6,6 +6,9 @@
         <p class="page-sub">Monitoreo de eventos y detección automática en tiempo real</p>
       </div>
       <div class="head-actions">
+        <button v-if="auth.isAdminTI" class="reset-btn" @click="reiniciar">
+          <v-icon size="13">mdi-restart</v-icon>Reiniciar demo
+        </button>
         <span class="live" :class="{ 'live--paused': !live }">
           <span class="live-dot" />{{ live ? 'EN VIVO' : 'PAUSADO' }}
         </span>
@@ -33,9 +36,9 @@
         <div class="kpi-sub">creados por el motor de reglas</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Sensores activos</div>
-        <div class="kpi-value kpi-value--muted">{{ counts.sensors }}</div>
-        <div class="kpi-sub">reportando en los últimos 5 min</div>
+        <div class="kpi-label">IPs contenidas</div>
+        <div class="kpi-value" :class="counts.blocked ? 'kpi-value--block' : 'kpi-value--muted'">{{ counts.blocked }}</div>
+        <div class="kpi-sub">bloqueadas automáticamente (SOAR)</div>
       </div>
     </div>
 
@@ -62,6 +65,35 @@
         </div>
       </div>
 
+      <div class="side-col">
+      <!-- Contención automática (SOAR) -->
+      <div class="panel">
+        <div class="section-label">Contención automática (SOAR)</div>
+        <div v-if="blockedIps.length" class="block-list">
+          <div v-for="b in blockedIps" :key="b.id" class="block">
+            <div class="block-head">
+              <v-icon size="14" color="#C0392B">mdi-cancel</v-icon>
+              <span class="block-ip">{{ b.source_ip }}</span>
+              <span class="block-rule">{{ RULE_LABELS[b.rule] || b.rule }}</span>
+            </div>
+            <!-- Playbook SOAR: el recorrido de la respuesta automática paso a paso -->
+            <div class="pb-steps">
+              <span class="pb on">Detectar</span>
+              <span class="pb on">Contener</span>
+              <span class="pb" :class="{ on: b.alerted_at }">Notificar</span>
+              <span class="pb on">Documentar</span>
+              <button v-if="auth.canCreateIncident" class="pb-release" @click="liberar(b.source_ip)">
+                Liberar
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="no-data">
+          <v-icon size="24" color="#E2E2E2">mdi-shield-outline</v-icon>
+          <span>Ninguna IP contenida</span>
+        </div>
+      </div>
+
       <!-- Incidentes auto-generados -->
       <div class="panel">
         <div class="section-label">Incidentes automáticos</div>
@@ -84,6 +116,7 @@
           <span>Sin incidentes</span>
         </div>
       </div>
+      </div>
     </div>
   </div>
 </template>
@@ -91,12 +124,15 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useIncidentStore } from '@/stores/incidents'
+import { useAuthStore } from '@/stores/auth'
 
 const store = useIncidentStore()
+const auth = useAuthStore()
 
-const counts = reactive({ events: 0, alerts: 0, incidents: 0, sensors: 0 })
+const counts = reactive({ events: 0, alerts: 0, incidents: 0, sensors: 0, blocked: 0 })
 const events = ref([])
 const incidents = ref([])
+const blockedIps = ref([])
 const live = ref(true)
 let timer = null
 
@@ -116,8 +152,32 @@ async function poll() {
     Object.assign(counts, data.counts)
     events.value = data.events
     incidents.value = data.incidents
+    blockedIps.value = data.blocked_ips || []
   } catch {
     /* silencioso: si una lectura falla, reintenta en el próximo ciclo */
+  }
+}
+
+// SOAR — «Revisar/Liberar»: el operador levanta la contención de una IP.
+async function liberar(ip) {
+  try {
+    await store.releaseBlock(ip)
+    blockedIps.value = blockedIps.value.filter((b) => b.source_ip !== ip) // optimista
+    poll()
+  } catch {
+    /* si falla, el próximo poll vuelve a mostrar la IP */
+  }
+}
+
+// Reinicia el tablero para repetir la demo (borra solo lo generado por el sensor).
+async function reiniciar() {
+  if (!confirm('¿Reiniciar la demo? Se borrarán los eventos, las IPs contenidas y los '
+    + 'incidentes generados por el sensor. Los incidentes registrados a mano se conservan.')) return
+  try {
+    await store.resetDemo()
+    poll()
+  } catch {
+    /* noop */
   }
 }
 
@@ -201,6 +261,51 @@ onUnmounted(() => clearInterval(timer))
 /* animación de entrada de cada evento nuevo */
 .ev-enter-active { transition: all 0.35s ease; }
 .ev-enter-from { opacity: 0; transform: translateX(-8px); }
+
+.kpi-value--block { color: #C0392B !important; }
+
+/* ── Contención (SOAR) ── */
+.side-col { display: flex; flex-direction: column; gap: 0.875rem; }
+.block-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.block {
+  padding: 0.5rem 0.55rem 0.55rem; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--white);
+}
+.block-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+}
+.block-ip { font-size: 0.78rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.block-rule {
+  margin-left: auto; font-size: 0.56rem; font-weight: 800; letter-spacing: 0.06em;
+  color: #fff; background: #C0392B; padding: 0.12rem 0.38rem; border-radius: 3px;
+}
+
+/* ── Pasos del playbook SOAR ── */
+.pb-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.5rem; }
+.pb {
+  position: relative; font-size: 0.56rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-4); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 99px; padding: 0.14rem 0.46rem;
+}
+.pb.on { color: var(--white); background: var(--ink); border-color: var(--ink); }
+.pb.on::before { content: '✓ '; }
+.pb-release {
+  margin-left: auto; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.05em;
+  color: #C0392B; background: #FCF3F2; border: 1px solid #E8C5C0;
+  border-radius: 99px; padding: 0.16rem 0.55rem; cursor: pointer; transition: all var(--t);
+}
+.pb-release:hover { color: #fff; background: #C0392B; border-color: #C0392B; }
+
+/* ── Botón Reiniciar demo (cabecera) ── */
+.reset-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--ink-2); background: var(--white);
+  border: 1px solid var(--border); border-radius: 99px; padding: 0.3rem 0.6rem;
+  cursor: pointer; transition: all var(--t);
+}
+.reset-btn:hover { color: var(--ink); border-color: var(--ink); }
 
 /* ── Incidentes ── */
 .inc-list { display: flex; flex-direction: column; gap: 0.2rem; }

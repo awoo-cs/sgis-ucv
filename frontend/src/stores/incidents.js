@@ -67,9 +67,22 @@ export const useIncidentStore = defineStore('incidents', () => {
     return data
   }
 
+  // SOAR — paso «Revisar/Liberar»: levanta la contención de una IP (analista/admin_ti).
+  async function releaseBlock(ip) {
+    const { data } = await axios.post(`/ingest/blocklist/${ip}/release/`)
+    return data
+  }
+
+  // Reinicia la demo: borra eventos, bloqueos e incidentes del sensor (solo admin_ti).
+  async function resetDemo() {
+    const { data } = await axios.post('/ingest/reset/')
+    return data
+  }
+
   return {
     incidents, currentIncident, metrics, loading, total,
     fetchIncidents, fetchIncident, createIncident, updateIncident,
     addComment, fetchMetrics, updateActionPlan, fetchOperationsFeed,
+    releaseBlock, resetDemo,
   }
 })
