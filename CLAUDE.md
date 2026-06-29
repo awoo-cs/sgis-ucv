@@ -11,6 +11,7 @@ Plataforma web para el Centro de Cómputo de la Universidad César Vallejo (UCV)
 ## Estado y roadmap
 
 - **2026-06-17** — Presentada la V1 (demo) al docente. Veredicto: idea buena pero proyecto **muy simple** → hacer una **V1.1 "remasterizada"**.
+- **2026-06-26** — 2da revisión: el profe pidió pasar de **SIEM a SOAR** ("¿qué hace el sistema *después* de detectar?"). → **V1.2: respuesta activa** = al detectar, el sistema **contiene** automáticamente bloqueando la IP atacante (el sensor le corta la conexión en vivo). Pensado para demo sobre la LAN/switch del salón.
 - **Próximas features a planear** (aún sin diseñar): generación automática de reportes de incidentes a partir de eventos de un **firewall**, y **planes de acción automáticos** más completos.
 - Informe de justificación técnica entregado al docente: `../Informe_Justificacion_Tecnica_SGIS-UCV.docx`.
 
@@ -309,7 +310,8 @@ Flujo unidireccional. Un incidente `cerrado` no puede modificarse (RNF8). Cada c
 | `GET/PATCH` | `/api/action-plans/{id}/` | Ver / editar plan de acción |
 | `GET` | `/api/reports/pdf/` | Exportar PDF (acepta mismos filtros que `/incidents/`) |
 | `POST` | `/api/ingest/events/` | Ingesta de un evento del sensor — **autentica con `X-API-Key`** (no JWT) |
-| `GET` | `/api/ingest/feed/` | Estado en vivo del Centro de Operaciones (counts + eventos + incidentes) |
+| `GET` | `/api/ingest/feed/` | Estado en vivo del Centro de Operaciones (counts + eventos + incidentes + IPs contenidas) |
+| `GET` | `/api/ingest/blocklist/` | IPs en contención activa (**`X-API-Key`**) — el sensor la consulta y la aplica (SOAR) |
 
 ### Cambio de estado via PATCH
 ```json
@@ -344,6 +346,18 @@ atacante → (TCP) → sensor → (HTTP + X-API-Key) → /api/ingest/events/
 ```bash
 docker compose exec backend python manage.py test apps.ingest   # tests del motor
 ```
+
+### Respuesta activa / contención (V1.2 — salto SIEM→SOAR)
+
+Detectar no basta: al disparar una regla, el motor **contiene** la amenaza. `_fire()` (en `detection.py`) llama a `_contain()`, que da de alta la IP atacante en el modelo **`BlockedIP`** (lista de bloqueo) y anota la contención en el historial del incidente. La contención es **idempotente** (anti-duplicados por IP).
+
+El **punto de aplicación** es el propio **sensor** (no el firewall físico, para poder demostrarlo sobre la LAN del salón sin tocar la red): consulta `GET /api/ingest/blocklist/` cada 2 s y, en cuanto una IP está activa, **corta toda conexión entrante** de esa IP (RST). El atacante ve su conexión caer **en vivo** → eso es lo proyectable.
+
+```
+detecta (regla) → BlockedIP (backend decide) → sensor consulta blocklist → corta al atacante (enforce)
+```
+
+El Centro de Operaciones muestra las IPs contenidas (KPI "IPs contenidas" + panel "Contención automática (SOAR)").
 
 ---
 
