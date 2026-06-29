@@ -53,3 +53,36 @@ class SecurityEvent(models.Model):
     def __str__(self):
         port = f":{self.dest_port}" if self.dest_port else ''
         return f"{self.source_ip}{port} [{self.event_type}]"
+
+
+class BlockedIP(models.Model):
+    """
+    IP en contención automática (V1.2 — salto SIEM→SOAR).
+
+    Cuando una regla dispara, el motor no solo crea el incidente: además mete la
+    IP atacante aquí. El sensor consulta esta lista (GET /api/ingest/blocklist/)
+    y corta toda conexión entrante desde una IP activa → contención en vivo.
+
+    Es la "lista de bloqueo" que un firewall real aplicaría; aquí la aplica el
+    propio sensor para poder demostrarlo sobre la LAN del salón sin tocar el
+    firewall físico.
+    """
+    source_ip = models.GenericIPAddressField(unique=True, verbose_name='IP bloqueada')
+    rule = models.CharField(max_length=40, verbose_name='Regla que la disparó')
+    reason = models.CharField(max_length=255, blank=True)
+    incident = models.ForeignKey(
+        'incidents.Incident', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='blocked_ips', verbose_name='Incidente que la originó',
+    )
+    active = models.BooleanField(default=True, verbose_name='Bloqueo activo')
+    created_at = models.DateTimeField(auto_now_add=True)
+    released_at = models.DateTimeField(null=True, blank=True, verbose_name='Liberada el')
+    alerted_at = models.DateTimeField(null=True, blank=True, verbose_name='Notificado el')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'IP bloqueada'
+        verbose_name_plural = 'IPs bloqueadas'
+
+    def __str__(self):
+        return f"{self.source_ip} ({'activa' if self.active else 'liberada'})"

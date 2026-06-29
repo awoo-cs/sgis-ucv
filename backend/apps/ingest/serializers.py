@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SecurityEvent
+from .models import SecurityEvent, BlockedIP
 
 
 class EventIngestSerializer(serializers.ModelSerializer):
@@ -23,3 +23,10 @@ class SecurityEventSerializer(serializers.ModelSerializer):
             'dest_port', 'username', 'detail', 'sensor', 'is_alert', 'rule',
             'triggered_incident',
         ]
+
+
+class BlockedIPSerializer(serializers.ModelSerializer):
+    """Salida de las IPs en contención para el Centro de Operaciones."""
+    class Meta:
+        model = BlockedIP
+        fields = ['id', 'source_ip', 'rule', 'reason', 'incident', 'created_at', 'alerted_at']
