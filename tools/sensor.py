@@ -23,6 +23,7 @@ import json
 import os
 import selectors
 import socket
+import subprocess
 import sys
 import time
 import urllib.error
@@ -70,6 +71,65 @@ def post_event(endpoint, api_key, event):
     return None
 
 
+def fetch_blocklist(base_url, api_key):
+    """Consulta al backend qué IPs están en contención. Devuelve un set (vacío si falla)."""
+    req = urllib.request.Request(
+        base_url.rstrip('/') + '/api/ingest/blocklist/',
+        headers={'X-API-Key': api_key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return set(json.loads(resp.read()).get('blocked_ips', []))
+    except Exception:
+        return set()  # si la lectura falla, no contenemos a nadie de más
+
+
+def diff_blocklist(desired, current):
+    """Reconcile declarativo: dado lo que el backend QUIERE bloqueado (`desired`) y
+    lo que el sensor TIENE bloqueado ahora (`current`), devuelve (a_agregar, a_quitar).
+
+    Es la misma idea de un firewall real: no se reaplica todo cada vez, solo el delta.
+    """
+    return desired - current, current - desired
+
+
+def _selftest():
+    """Prueba de la lógica pura del reconcile (sin red ni Windows). `--selftest`."""
+    assert diff_blocklist({'a', 'b'}, set()) == ({'a', 'b'}, set())
+    assert diff_blocklist({'a'}, {'a', 'b'}) == (set(), {'b'})
+    assert diff_blocklist({'a'}, {'a'}) == (set(), set())
+    assert diff_blocklist(set(), {'a'}) == (set(), {'a'})
+    log("selftest OK", 'yel')
+
+
+def _is_windows_admin():
+    """True solo si corremos en Windows con privilegios de administrador."""
+    if os.name != 'nt':
+        return False
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _fw_add(ip):
+    """Crea una regla de Windows Firewall que bloquea TODO el tráfico entrante de `ip`."""
+    subprocess.run(
+        ['netsh', 'advfirewall', 'firewall', 'add', 'rule',
+         f'name=SGIS-block-{ip}', 'dir=in', 'action=block', f'remoteip={ip}'],
+        capture_output=True,
+    )
+
+
+def _fw_del(ip):
+    """Borra la regla de firewall de `ip` (idempotente: si no existe, netsh no falla feo)."""
+    subprocess.run(
+        ['netsh', 'advfirewall', 'firewall', 'delete', 'rule', f'name=SGIS-block-{ip}'],
+        capture_output=True,
+    )
+
+
 def report(endpoint, api_key, event):
     """Postea el evento y narra en consola lo que el backend detectó."""
     label = SERVICES.get(event.get('dest_port'), event.get('dest_port') or '-')
@@ -86,7 +146,7 @@ def report(endpoint, api_key, event):
 
 
 # ── Modo LISTEN ───────────────────────────────────────────────────────
-def run_listen(endpoint, api_key, name, ports, auth_port, bind):
+def run_listen(endpoint, base_url, api_key, name, ports, auth_port, bind, use_firewall=False):
     sel = selectors.DefaultSelector()
     opened = []
     for port in ports:
@@ -104,12 +164,40 @@ def run_listen(endpoint, api_key, name, ports, auth_port, bind):
     if not opened:
         sys.exit("No se pudo abrir ningún puerto. ¿Otro proceso los ocupa?")
 
+    # ¿Aplicamos firewall REAL? Solo si se pidió Y tenemos privilegios de admin en Windows.
+    fw_on = use_firewall and _is_windows_admin()
+    if use_firewall and not fw_on:
+        log("  · firewall real no disponible (sin admin / no es Windows) → corto solo en la app", 'yel')
+    elif fw_on:
+        log("  · firewall REAL activo: las IPs contenidas se bloquean con reglas netsh", 'red')
+
     log(f"\n{C['bold']}Sensor «{name}» escuchando{C['off']} en {bind} puertos: "
         f"{', '.join(map(str, opened))}", 'yel')
     log(f"Reportando a {endpoint}\nEsperando tráfico…  (Ctrl-C para salir)\n")
 
+    blocked = set()                       # lo que ESTE sensor tiene contenido ahora
+    last_refresh = time.monotonic() - 3   # negativo → fuerza un primer refresco inmediato
+
     try:
         while True:
+            # Cada 2s preguntamos al backend qué IPs quiere contenidas y reconciliamos
+            # solo el delta (igual que un firewall real): aplicamos las nuevas y
+            # levantamos las que el operador liberó desde el Centro de Operaciones.
+            if time.monotonic() - last_refresh > 2:
+                desired = fetch_blocklist(base_url, api_key)
+                to_add, to_remove = diff_blocklist(desired, blocked)
+                if fw_on:
+                    for ip in to_add:
+                        _fw_add(ip)
+                    for ip in to_remove:
+                        _fw_del(ip)
+                for ip in to_add:
+                    log(f"{ip:>15} ⛔ contención aplicada{' (firewall real)' if fw_on else ''}", 'red')
+                for ip in to_remove:
+                    log(f"{ip:>15} ✔ contención levantada", 'yel')
+                blocked = desired
+                last_refresh = time.monotonic()
+
             for key, _ in sel.select(timeout=1):
                 listener, port = key.fileobj, key.data
                 try:
@@ -117,6 +205,14 @@ def run_listen(endpoint, api_key, name, ports, auth_port, bind):
                 except OSError:
                     continue
                 src_ip = addr[0]
+
+                # ── Contención (V1.2 SOAR): IP bloqueada → cortar y no procesar ──
+                if src_ip in blocked:
+                    conn.close()  # RST: el atacante ve su conexión caer en vivo
+                    log(f"{src_ip:>15} → {SERVICES.get(port, port)!s:<9} ⛔ CONTENIDO "
+                        f"(IP bloqueada por el SOAR)", 'red')
+                    continue
+
                 conn.settimeout(0.4)
                 try:
                     data = conn.recv(256)
@@ -139,6 +235,11 @@ def run_listen(endpoint, api_key, name, ports, auth_port, bind):
     except KeyboardInterrupt:
         log("\nSensor detenido.", 'yel')
     finally:
+        if fw_on and blocked:
+            # No dejamos reglas huérfanas en el host: limpiamos lo que metió este sensor.
+            log(f"Limpiando {len(blocked)} regla(s) de firewall…", 'yel')
+            for ip in blocked:
+                _fw_del(ip)
         for key in list(sel.get_map().values()):
             key.fileobj.close()
 
@@ -169,14 +270,22 @@ def main():
     p.add_argument('--replay', nargs='?', const=os.path.join(here, 'events_replay.json'),
                    help='Reproduce un ataque pregrabado en vez de escuchar')
     p.add_argument('--replay-delay', type=float, default=0.4, help='Segundos entre eventos del replay')
+    p.add_argument('--firewall', action='store_true',
+                   help='Aplica reglas de Windows Firewall REALES (netsh) a las IPs contenidas (requiere admin)')
+    p.add_argument('--selftest', action='store_true', help='Corre la prueba de la lógica de reconcile y sale')
     args = p.parse_args()
+
+    if args.selftest:
+        _selftest()
+        return
 
     endpoint = args.target.rstrip('/') + '/api/ingest/events/'
     if args.replay:
         run_replay(endpoint, args.api_key, args.name, args.replay, args.replay_delay)
     else:
         ports = [int(x) for x in args.ports.split(',') if x.strip()]
-        run_listen(endpoint, args.api_key, args.name, ports, args.auth_port, args.bind)
+        run_listen(endpoint, args.target, args.api_key, args.name, ports, args.auth_port,
+                   args.bind, args.firewall)
 
 
 if __name__ == '__main__':
