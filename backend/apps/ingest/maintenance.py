@@ -5,7 +5,7 @@ incidentes de demo ni los registrados manualmente.
 """
 from apps.incidents.models import Incident
 
-from .models import SecurityEvent, BlockedIP
+from .models import SecurityEvent, BlockedIP, AlertThrottle
 
 
 def reset_demo_data():
@@ -19,4 +19,5 @@ def reset_demo_data():
     auto.delete()                      # cascada: historial, plan, blocked_ips (SET_NULL en events)
     SecurityEvent.objects.all().delete()
     BlockedIP.objects.all().delete()
+    AlertThrottle.objects.all().delete()   # reinicia el agrupador de notificaciones
     return counts

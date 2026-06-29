@@ -86,3 +86,27 @@ class BlockedIP(models.Model):
 
     def __str__(self):
         return f"{self.source_ip} ({'activa' if self.active else 'liberada'})"
+
+
+class AlertThrottle(models.Model):
+    """
+    Estado del agrupador de notificaciones (Opción A: resumen por ventana).
+
+    Singleton (pk=1). Evita inundar al encargado cuando hay muchos incidentes:
+    el PRIMER incidente de una ráfaga se notifica al instante; los siguientes
+    dentro de la ventana de monitoreo se cuentan y se resumen en el próximo
+    correo (en lugar de un email por incidente).
+
+    Vive en BD (no en memoria) a propósito: así es correcto con varios workers
+    de gunicorn (todos comparten el mismo estado) y `reset_demo` puede limpiarlo.
+    """
+    window_started_at = models.DateTimeField(null=True, blank=True)
+    suppressed = models.PositiveIntegerField(default=0, verbose_name='Incidentes en cola')
+    suppressed_titles = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Estado de notificaciones'
+        verbose_name_plural = 'Estado de notificaciones'
+
+    def __str__(self):
+        return f"AlertThrottle(cola={self.suppressed})"

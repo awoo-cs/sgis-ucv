@@ -139,3 +139,7 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='SGIS-UCV <no-reply@sgis.local>')
 # Destinatario de las alertas automáticas del playbook SOAR.
 SOAR_ALERT_EMAIL = config('SOAR_ALERT_EMAIL', default='leopb77@gmail.com')
+# Ventana de agrupación de notificaciones (Opción A): el 1er incidente de una
+# ráfaga se notifica al instante; los siguientes dentro de estos segundos se
+# resumen en el próximo correo, para no inundar al encargado.
+SOAR_ALERT_WINDOW_SECONDS = config('SOAR_ALERT_WINDOW_SECONDS', default=300, cast=int)

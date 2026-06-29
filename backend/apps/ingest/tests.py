@@ -3,6 +3,7 @@ Prueba del motor de reglas. Ejecutar:
 
     docker compose exec backend python manage.py test apps.ingest
 """
+from datetime import timedelta
 from unittest import mock
 
 from django.core import mail
@@ -15,8 +16,8 @@ from apps.accounts.models import CustomUser
 from apps.incidents.models import Incident
 from .detection import evaluate, get_sensor_user
 from .maintenance import reset_demo_data
-from .models import SecurityEvent, BlockedIP
-from .notifications import build_alert, send_incident_alert
+from .models import SecurityEvent, BlockedIP, AlertThrottle
+from .notifications import build_alert, send_incident_alert, notify_incident
 
 
 def _event(**kw):
@@ -129,6 +130,54 @@ class NotificationTests(TestCase):
             _event(event_type=SecurityEvent.CONNECTION, dest_port=port)
         block = BlockedIP.objects.get(source_ip='10.0.0.5')
         self.assertIsNotNone(block.alerted_at)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    DEFAULT_FROM_EMAIL='SGIS-UCV <no-reply@sgis.local>',
+    SOAR_ALERT_EMAIL='leopb77@gmail.com',
+    SOAR_ALERT_WINDOW_SECONDS=300,
+)
+class ThrottleTests(TestCase):
+    """Opción A — resumen por ventana: no inundar al encargado con muchos correos."""
+
+    def setUp(self):
+        # Los tests que lanzan el hilo daemon de detección pueden dejar una fila
+        # AlertThrottle comprometida fuera de la transacción; partimos de cero.
+        AlertThrottle.objects.all().delete()
+        mail.outbox.clear()
+
+    def _incident(self, n):
+        return Incident.objects.create(
+            title=f'Incidente automático #{n}',
+            description='x', incident_type=Incident.ACCESO_NO_AUTORIZADO,
+            criticality=Incident.MEDIO, status=Incident.ABIERTO,
+            affected_area='Red', affected_system='sensor-test',
+            detected_at=timezone.now(), created_by=get_sensor_user(),
+        )
+
+    def test_first_incident_notifies_immediately(self):
+        self.assertTrue(notify_incident(self._incident(1)))
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_burst_within_window_is_suppressed(self):
+        notify_incident(self._incident(1))            # envía
+        notify_incident(self._incident(2))            # se acumula
+        notify_incident(self._incident(3))            # se acumula
+        self.assertEqual(len(mail.outbox), 1)         # 1 solo correo, no 3
+        self.assertEqual(AlertThrottle.objects.get(pk=1).suppressed, 2)
+
+    def test_next_window_sends_summary_of_suppressed(self):
+        notify_incident(self._incident(1))            # envía, abre ventana
+        notify_incident(self._incident(2))            # se acumula (1 en cola)
+        # Simulo que pasó la ventana retrasando su inicio:
+        st = AlertThrottle.objects.get(pk=1)
+        st.window_started_at = timezone.now() - timedelta(seconds=301)
+        st.save(update_fields=['window_started_at'])
+        self.assertTrue(notify_incident(self._incident(3)))
+        self.assertEqual(len(mail.outbox), 2)         # 2º correo (resumen + nuevo)
+        self.assertIn('1 incidente', mail.outbox[1].body)   # menciona el acumulado
+        self.assertEqual(AlertThrottle.objects.get(pk=1).suppressed, 0)  # cola vaciada
 
 
 @override_settings(INGEST_BLACKLIST=[])
