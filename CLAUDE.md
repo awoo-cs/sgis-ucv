@@ -12,6 +12,7 @@ Plataforma web para el Centro de Cómputo de la Universidad César Vallejo (UCV)
 
 - **2026-06-17** — Presentada la V1 (demo) al docente. Veredicto: idea buena pero proyecto **muy simple** → hacer una **V1.1 "remasterizada"**.
 - **2026-06-26** — 2da revisión: el profe pidió pasar de **SIEM a SOAR** ("¿qué hace el sistema *después* de detectar?"). → **V1.2: respuesta activa** = al detectar, el sistema **contiene** automáticamente bloqueando la IP atacante (el sensor le corta la conexión en vivo). Pensado para demo sobre la LAN/switch del salón.
+- **2026-06-29** — Fase 3 (SOAR V1.2) verificada y cerrada. Añadido el paso **Notificar** del playbook: al contener, se envía un **email de alerta** (ver "Notificación por email" abajo). Probado end-to-end en la nube **dev** (detectar → contener → notificar → email recibido). Kit demo (`tools/`) auditado y apuntando a dev, con apertura/cierre automático del firewall del sensor. main/producción **intactos**.
 - **Próximas features a planear** (aún sin diseñar): generación automática de reportes de incidentes a partir de eventos de un **firewall**, y **planes de acción automáticos** más completos.
 - Informe de justificación técnica entregado al docente: `../Informe_Justificacion_Tecnica_SGIS-UCV.docx`.
 
@@ -161,6 +162,12 @@ railway up ./backend --path-as-root --service backend --detach -m "descripción"
 | `POSTGRES_USER` | `postgres` |
 | `POSTGRES_PORT` | `5432` |
 | `ALLOWED_HOSTS` | `*` |
+| `INGEST_API_KEY` | clave del sensor (cabecera `X-API-Key`) |
+| `EMAIL_BACKEND` | `apps.ingest.resend_email.ResendEmailBackend` (HTTP, no SMTP) |
+| `RESEND_API_KEY` | key de resend.com (envío de email por HTTP) |
+| `DEFAULT_FROM_EMAIL` | `SGIS-UCV <onboarding@resend.dev>` (sin dominio propio) |
+| `SOAR_ALERT_EMAIL` | destinatario de las alertas (default `leopb77@gmail.com`) |
+| `SOAR_ALERT_WINDOW_SECONDS` | ventana del digest anti-saturación (default `300`) |
 
 ---
 
@@ -210,18 +217,25 @@ sgis-ucv/
 │       │   ├── pdf_generator.py             ← ReportLab: tabla coloreada por criticidad
 │       │   ├── views.py
 │       │   └── urls.py
-│       └── ingest/                          ← Mini-SIEM V1.1: ingesta + motor de reglas
-│           ├── models.py                    ← SecurityEvent (evento crudo del sensor)
-│           ├── detection.py                 ← Motor: 3 reglas → incidente automático
+│       └── ingest/                          ← Mini-SIEM V1.1 + SOAR V1.2
+│           ├── models.py                    ← SecurityEvent, BlockedIP, AlertThrottle
+│           ├── detection.py                 ← Motor: 3 reglas → incidente + contención
+│           ├── notifications.py             ← Email de alerta + digest anti-saturación (Opción A)
+│           ├── resend_email.py              ← Backend de email por HTTP (Resend) — Railway bloquea SMTP
+│           ├── ipv4_email.py                ← Backend SMTP forzando IPv4 (referencia; no usar en Railway)
+│           ├── maintenance.py               ← reset_demo_data (limpia eventos/incidentes/contención/throttle)
 │           ├── serializers.py
-│           ├── views.py                     ← POST events (API-key) + GET feed (JWT)
+│           ├── views.py                     ← POST events (API-key) + GET feed (JWT) + reset (admin_ti)
 │           ├── urls.py
-│           └── tests.py                     ← Tests del motor de detección
+│           └── tests.py                     ← 21 tests: detección, contención, throttle, email, reset
 │
-├── tools/                                   ← Demo del mini-SIEM (solo stdlib, sin pip)
-│   ├── sensor.py                            ← Honeypot: escucha puertos y reporta (--replay)
+├── tools/                                   ← Kit de demo (solo stdlib, sin pip)
+│   ├── sensor.py                            ← Honeypot: escucha puertos y reporta (--replay, --firewall)
 │   ├── attacker.py                          ← Atacante gemelo Python (Linux/Mac)
 │   ├── attacker.ps1                         ← Atacante PowerShell nativo (Windows)
+│   ├── Launcher.ps1                         ← Kit rol-aware (Sensor/Atacante/Operador) + auto-firewall
+│   ├── Iniciar.bat                          ← Doble clic → lanza el Launcher
+│   ├── LEEME.txt                            ← Guía rápida por rol
 │   ├── events_replay.json                   ← Ataque pregrabado (demo sin red)
 │   └── README.md                            ← Runbook de la demo
 │
@@ -358,6 +372,29 @@ detecta (regla) → BlockedIP (backend decide) → sensor consulta blocklist →
 ```
 
 El Centro de Operaciones muestra las IPs contenidas (KPI "IPs contenidas" + panel "Contención automática (SOAR)").
+
+### Notificación por email (V1.2 — paso "Notificar" del playbook)
+
+Al crearse un incidente automático, `apps/ingest/notifications.py` envía un **email de alerta** profesional (sin emojis) al `SOAR_ALERT_EMAIL`. Es **best-effort**: corre en un hilo daemon y cualquier fallo se loguea, **nunca** rompe la ingesta.
+
+- **Anti-saturación (Opción A — digest por ventana):** el modelo singleton **`AlertThrottle`** (en BD, fila `pk=1`, consistente entre workers de gunicorn) hace que el **primer** incidente de una ráfaga notifique al instante; los siguientes dentro de `SOAR_ALERT_WINDOW_SECONDS` (default 300 s) se **acumulan** y se resumen en el próximo correo. Decisión atómica con `select_for_update`; el envío SMTP/HTTP va **fuera** de la transacción. `reset_demo` limpia el throttle.
+- **Envío por HTTP (Resend), NO SMTP — crítico:** **Railway bloquea los puertos SMTP de salida** (25/465/587), así que cualquier backend SMTP da `TimeoutError [Errno 110] Connection timed out`. Se envía por la **API HTTP de Resend** (puerto 443) con el backend custom **`apps/ingest/resend_email.py`** (`ResendEmailBackend`, solo stdlib). Detalle: hay que mandar un **`User-Agent` propio** o Cloudflare (escudo de Resend) responde `403 error 1010`.
+  - Existe además `apps/ingest/ipv4_email.py` (`IPv4EmailBackend`): fuerza IPv4 para SMTP. Quedó como referencia, pero **no resuelve** el bloqueo de SMTP de Railway; el camino bueno es Resend.
+- **Resend free sin dominio propio** solo envía **a la dirección con la que te registraste** (por eso la cuenta se registró con `leopb77@gmail.com`). Para enviar a otros destinatarios habría que verificar un dominio en Resend.
+- **Tests:** `apps.ingest` (21 tests) cubre detección, contención, throttle, release, reset y los dos backends de email.
+
+### Entorno DEV en la nube (Railway + Vercel) — para pruebas sin tocar producción
+
+V1.2 se prueba en un **entorno dev aislado**, duplicado de producción; `main`/producción no se tocan.
+
+| Servicio | URL dev |
+|----------|---------|
+| Backend dev (Railway) | https://backend-dev-6d4d.up.railway.app |
+| Frontend dev (Vercel) | https://sgis-ucv-git-dev-awoo-cs-projects.vercel.app (Deployment Protection desactivado para que la demo abra sin login de Vercel) |
+
+- El entorno dev de Railway (id `2e721939-19a2-4c7b-8fd4-eeaf10c3cc06`) tiene su **propio Postgres**; sus vars de DB deben ser **referencias** (`${{Postgres.POSTGRES_PASSWORD}}`, etc.), no copias del de producción.
+- Deploy del backend dev: `railway up ./backend --path-as-root --service backend --environment dev --detach`.
+- El frontend dev **debe** llevar `VITE_API_BASE_URL` apuntando al backend dev **con sufijo `/api`** (el front pega `/auth/login/` sobre la base).
 
 ---
 
