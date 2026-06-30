@@ -48,6 +48,9 @@ class ResendEmailBackend(BaseEmailBackend):
                 headers={
                     'Authorization': f'Bearer {api_key}',
                     'Content-Type': 'application/json',
+                    # Sin un User-Agent "de navegador", Cloudflare (escudo de la API
+                    # de Resend) banea el de urllib con un 403 error 1010.
+                    'User-Agent': 'SGIS-UCV/1.0 (+https://sgis-ucv.vercel.app)',
                 },
             )
             try:
