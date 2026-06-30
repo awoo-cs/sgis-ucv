@@ -19,7 +19,7 @@ EXPOSE 8000
 
 CMD python manage.py migrate --noinput && \
     (python manage.py loaddata initial_data.json 2>/dev/null || true) && \
-    (python manage.py create_demo_data 2>/dev/null || true) && \
+    ( [ "${SEED_DEMO:-1}" = "1" ] && python manage.py create_demo_data 2>/dev/null || true ) && \
     exec gunicorn sgis.wsgi:application \
         --bind "0.0.0.0:${PORT:-8000}" \
         --workers 2 \
