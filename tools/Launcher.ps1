@@ -26,11 +26,15 @@ Add-Type -AssemblyName System.Drawing
 $dir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 
 # ── Valores por defecto (editables en la ventana) ─────────────────────────────
-$DEFAULT_BACKEND  = 'https://backend-production-7cfc1.up.railway.app'
-$DEFAULT_FRONTEND = 'https://sgis-ucv.vercel.app'
-# OJO: clave de DESARROLLO. El día de la demo, pega aquí la INGEST_API_KEY real
-# de Railway (no se versiona ninguna clave real en el repo).
-$DEFAULT_APIKEY   = 'dev-sensor-key-change-me'
+# Apuntan al entorno DEV (Railway + Vercel). Para la demo final contra producción,
+# cámbialos en la ventana o edita estas 3 líneas.
+$DEFAULT_BACKEND  = 'https://backend-dev-6d4d.up.railway.app'
+$DEFAULT_FRONTEND = 'https://sgis-ucv-git-dev-awoo-cs-projects.vercel.app'
+# Clave de ingesta del entorno DEV (no es un secreto de producción).
+$DEFAULT_APIKEY   = 'dev-cloud-test-2026'
+
+# Puertos que el sensor escucha; el rol Sensor abre estos en el firewall al arrancar.
+$SENSOR_PORTS = '2121,2222,8080,8443,3306,3389,5432,9000,1433,5900,6379,9200'
 
 # Python a usar para el sensor (la única laptop que lo necesita).
 $script:PythonExe = $null
@@ -164,11 +168,34 @@ function Start-Attack([bool]$scanOnly) {
     Write-Log "Atacando $ip $modo…" 'Tomato'
 }
 
+# Abre/cierra en el Firewall de Windows los puertos de ENTRADA del sensor.
+# Sin esto, Windows rebota las conexiones entrantes y el sensor no ve nada
+# (cero líneas en consola). Requiere admin → se eleva con un aviso UAC.
+function Set-SensorFirewall([bool]$open) {
+    $rule = 'SGIS-sensor-in'
+    if ($open) {
+        $a = @('advfirewall', 'firewall', 'add', 'rule', "name=$rule", 'dir=in',
+               'action=allow', 'protocol=TCP', "localport=$SENSOR_PORTS")
+        $msg = "Puertos del sensor abiertos en el firewall ($SENSOR_PORTS)."
+    } else {
+        $a = @('advfirewall', 'firewall', 'delete', 'rule', "name=$rule")
+        $msg = 'Puertos del sensor cerrados en el firewall.'
+    }
+    try {
+        Start-Process -FilePath 'netsh.exe' -Verb RunAs -WindowStyle Hidden -ArgumentList $a -Wait
+        Write-Log $msg 'Gray'
+    } catch {
+        Write-Log "No pude tocar el firewall (¿cancelaste el aviso de administrador?)." 'Khaki'
+    }
+}
+
 # Lanza sensor.py. $firewall => con reglas netsh reales (pide UAC).
 function Start-Sensor([bool]$firewall) {
     if (-not $script:PythonExe) {
         Write-Log 'No encontré Python en esta laptop. El rol Sensor lo necesita.' 'Tomato'; return
     }
+    # Abrimos los puertos de entrada SIEMPRE (en ambos modos), si no, no llega tráfico.
+    Set-SensorFirewall $true
     $u = $txtUrl.Text.Trim(); $k = $txtKey.Text.Trim()
     $sargs = @('sensor.py', '--target', $u, '--api-key', $k)
     if ($firewall) { $sargs += '--firewall' }
@@ -193,6 +220,8 @@ function Stop-Sensor {
         try { Stop-Process -Id $script:SensorProc.Id -ErrorAction Stop; Write-Log 'Sensor detenido.' 'Khaki' }
         catch { Write-Log 'No pude detenerlo (¿está elevado?). Cierra su ventana con Ctrl-C.' 'Khaki' }
     } else { Write-Log 'No hay un sensor en marcha lanzado desde aquí.' 'Gray' }
+    # Dejamos el firewall como estaba: cerramos los puertos que abrió el kit.
+    Set-SensorFirewall $false
 }
 
 # ── Render por rol ────────────────────────────────────────────────────────────
