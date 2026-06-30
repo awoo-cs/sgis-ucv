@@ -18,6 +18,7 @@ COPY . .
 EXPOSE 8000
 
 CMD python manage.py migrate --noinput && \
+    ( [ "${RESET_DB:-0}" = "1" ] && python manage.py flush --no-input || true ) && \
     (python manage.py loaddata initial_data.json 2>/dev/null || true) && \
     ( [ "${SEED_DEMO:-1}" = "1" ] && python manage.py create_demo_data 2>/dev/null || true ) && \
     exec gunicorn sgis.wsgi:application \
