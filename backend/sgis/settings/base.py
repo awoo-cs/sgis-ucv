@@ -127,10 +127,16 @@ INGEST_BLACKLIST = [
 ]
 
 # ── Email / notificaciones del playbook SOAR ──────────────────────────
-# Dev: backend de consola (imprime el correo en el log, sin SMTP real).
-# Demo (Railway): EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-#                 + EMAIL_HOST_USER / EMAIL_HOST_PASSWORD (app password de Gmail).
+# Dev local: backend de consola (imprime el correo en el log, sin envío real).
+# Demo (Railway): Railway BLOQUEA los puertos SMTP de salida (25/465/587), así que
+#   cualquier backend SMTP da 'Connection timed out'. Por eso enviamos por la API
+#   HTTP de Resend (puerto 443):
+#     EMAIL_BACKEND=apps.ingest.resend_email.ResendEmailBackend
+#     RESEND_API_KEY=<tu key de resend.com>
+#     DEFAULT_FROM_EMAIL=SGIS-UCV <onboarding@resend.dev>   (sin dominio propio)
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+# API key de Resend (envío de correo por HTTP, sin SMTP). Vacía = no enviar.
+RESEND_API_KEY = config('RESEND_API_KEY', default='')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)

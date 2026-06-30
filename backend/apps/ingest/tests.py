@@ -3,6 +3,7 @@ Prueba del motor de reglas. Ejecutar:
 
     docker compose exec backend python manage.py test apps.ingest
 """
+import json
 from datetime import timedelta
 from unittest import mock
 
@@ -272,3 +273,38 @@ class IPv4EmailBackendTests(TestCase):
         self.assertEqual(captured['families'], {socket.AF_INET})
         # Y fuera de open(), getaddrinfo queda restaurado (puede volver a dar IPv6).
         self.assertIs(socket.getaddrinfo, socket.getaddrinfo)
+
+
+@override_settings(
+    EMAIL_BACKEND='apps.ingest.resend_email.ResendEmailBackend',
+    RESEND_API_KEY='re_test_key',
+    DEFAULT_FROM_EMAIL='SGIS-UCV <onboarding@resend.dev>',
+)
+class ResendEmailBackendTests(TestCase):
+    """El backend debe POSTear a la API de Resend con los campos correctos."""
+
+    def test_send_mail_posts_to_resend_api(self):
+        from django.core.mail import send_mail
+        import io
+
+        captured = {}
+
+        class FakeResp(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout=None):
+            captured['url'] = req.full_url
+            captured['auth'] = req.get_header('Authorization')
+            captured['body'] = json.loads(req.data.decode())
+            return FakeResp(b'{"id":"ok"}')
+
+        with mock.patch('apps.ingest.resend_email.urllib.request.urlopen', fake_urlopen):
+            n = send_mail('Asunto X', 'Cuerpo Y', None, ['leopb77@gmail.com'])
+
+        self.assertEqual(n, 1)
+        self.assertEqual(captured['url'], 'https://api.resend.com/emails')
+        self.assertEqual(captured['auth'], 'Bearer re_test_key')
+        self.assertEqual(captured['body']['to'], ['leopb77@gmail.com'])
+        self.assertEqual(captured['body']['subject'], 'Asunto X')
+        self.assertIn('onboarding@resend.dev', captured['body']['from'])
