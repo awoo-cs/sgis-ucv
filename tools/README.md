@@ -138,11 +138,17 @@ python tools/sensor.py --target https://backend-production-7cfc1.up.railway.app 
 
 1. **Internet** en el router (con hotspot de respaldo).
 2. **Python** en las 2 laptops controlables (rol Sensor).
-3. **Admin** en el laptop sensor (para el firewall real; si no, cae a solo-app).
-4. **SMTP en Railway** para que salga el email: `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`,
-   `EMAIL_HOST_USER`=su Gmail, `EMAIL_HOST_PASSWORD`=**app password** de Gmail.
-   `SOAR_ALERT_EMAIL` ya viene por defecto a `leopb77@gmail.com`.
-5. La **`INGEST_API_KEY`** real de Railway a la mano (se pega en el launcher).
+3. **Admin** en el laptop sensor (el kit pide UAC **una vez** para abrir los puertos
+   del sensor en el Firewall de Windows; el firewall real de contención también).
+4. **Email por Resend (HTTP, no SMTP)** ya configurado en Railway. OJO: Railway
+   **bloquea los puertos SMTP de salida** (25/465/587), así que Gmail/SMTP NO funciona;
+   se envía por la **API HTTP de Resend** (puerto 443). Variables en Railway:
+   `EMAIL_BACKEND=apps.ingest.resend_email.ResendEmailBackend`,
+   `RESEND_API_KEY=<key de resend.com>`,
+   `DEFAULT_FROM_EMAIL=SGIS-UCV <onboarding@resend.dev>`.
+   `SOAR_ALERT_EMAIL` ya viene a `leopb77@gmail.com`. Resend free sin dominio propio
+   solo envía a la dirección con la que te registraste.
+5. La **`INGEST_API_KEY`** del entorno a la mano (el launcher trae la de dev por defecto).
 
 ## Plan B (a prueba de firewall del salón)
 

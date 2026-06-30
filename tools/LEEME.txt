@@ -14,10 +14,11 @@ SEGÚN EL ROL
 ------------
 SENSOR  (necesita Python instalado — es la ÚNICA que lo necesita)
    - Anota la "IP LAN" que muestra la ventana: ESA es la que teclea el Atacante.
-   - "Iniciar sensor (firewall REAL)"  → pide permiso de administrador (UAC) y
-                                          bloquea de verdad al atacante con netsh.
-   - "Iniciar sensor (solo app)"       → corta la conexión a nivel de aplicación
-                                          (sin permisos de administrador).
+   - Al iniciar (cualquier modo) el kit pide UAC UNA VEZ para abrir los puertos del
+     sensor en el Firewall de Windows; si no, Windows rebota al atacante y no se ve nada.
+   - "Iniciar sensor (firewall REAL)"  → además bloquea de verdad al atacante con netsh.
+   - "Iniciar sensor (solo app)"       → corta la conexión a nivel de aplicación.
+   - "Detener sensor"                  → cierra el sensor y vuelve a cerrar esos puertos.
 
 ATACANTE  (no instala nada — PowerShell nativo de Windows)
    - Escribe la IP LAN del Sensor.

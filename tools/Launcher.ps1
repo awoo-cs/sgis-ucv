@@ -273,7 +273,7 @@ function Render-Role([string]$role) {
             $gbActions.Controls.Add($btnFw)
             $gbActions.Controls.Add($btnApp)
             $gbActions.Controls.Add($btnStop)
-            $gbActions.Controls.Add((New-Note 'Dicta a la laptop Atacante la IP de arriba. «Firewall real» pide permiso de administrador (UAC).' 150))
+            $gbActions.Controls.Add((New-Note 'Dicta al Atacante la IP de arriba. Al iniciar pide UAC una vez para abrir los puertos en el firewall; «firewall real» además bloquea con netsh.' 150))
         }
 
         'Operador' {
