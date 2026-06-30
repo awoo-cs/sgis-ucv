@@ -11,6 +11,7 @@ Solo usa la biblioteca estándar (urllib). Se activa con:
 """
 import json
 import logging
+import urllib.error
 import urllib.request
 
 from django.conf import settings
@@ -53,6 +54,11 @@ class ResendEmailBackend(BaseEmailBackend):
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     resp.read()
                 sent += 1
+            except urllib.error.HTTPError as e:
+                detail = e.read().decode('utf-8', 'replace')[:300]
+                logger.error('Resend devolvió %s: %s', e.code, detail)
+                if not self.fail_silently:
+                    raise
             except Exception:
                 logger.exception('Resend rechazó el envío del correo')
                 if not self.fail_silently:
