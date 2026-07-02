@@ -1,6 +1,6 @@
-from django.db.models import Count, Avg, F, ExpressionWrapper, DurationField
+from django.db.models import Count
 from django.utils import timezone
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from apps.accounts.permissions import IsAdminTIOrAnalista, CanUpdateOrValidateIncident
 from apps.action_plans.plan_templates import generate_action_plan
 from .filters import IncidentFilter
-from .models import Incident, IncidentComment
+from .models import Incident
 from .serializers import (
     IncidentListSerializer, IncidentDetailSerializer,
     IncidentCreateSerializer, IncidentUpdateSerializer,

@@ -5,7 +5,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER
 
 
 CRITICALITY_COLORS = {
@@ -31,7 +31,7 @@ def build_incident_report(incidents, filters_description: str = '') -> BytesIO:
     subtitle_style = ParagraphStyle('subtitle', parent=styles['Normal'], fontSize=10,
                                     textColor=colors.grey, spaceAfter=12)
     story.append(Paragraph('SGIS-UCV — Reporte de Incidentes de Seguridad', title_style))
-    story.append(Paragraph(f'Universidad César Vallejo — Centro de Cómputo', subtitle_style))
+    story.append(Paragraph('Universidad César Vallejo — Centro de Cómputo', subtitle_style))
     story.append(Paragraph(f'Generado el: {date.today().strftime("%d/%m/%Y")}', subtitle_style))
     if filters_description:
         story.append(Paragraph(f'Filtros aplicados: {filters_description}', subtitle_style))

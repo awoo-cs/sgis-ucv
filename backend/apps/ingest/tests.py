@@ -251,30 +251,6 @@ class ResetTests(TestCase):
         self.assertEqual(res.status_code, 403)
 
 
-class IPv4EmailBackendTests(TestCase):
-    """El backend debe resolver el servidor SMTP solo por IPv4 (fix Railway)."""
-
-    def test_open_forces_ipv4_resolution(self):
-        from django.core.mail.backends.smtp import EmailBackend as SMTPBackend
-        from .ipv4_email import IPv4EmailBackend
-        import socket
-
-        captured = {}
-
-        def fake_super_open(self):
-            # Mientras open() corre, getaddrinfo debe entregar solo IPv4.
-            res = socket.getaddrinfo('localhost', 80)
-            captured['families'] = {r[0] for r in res}
-            return True
-
-        with mock.patch.object(SMTPBackend, 'open', fake_super_open):
-            IPv4EmailBackend().open()
-
-        self.assertEqual(captured['families'], {socket.AF_INET})
-        # Y fuera de open(), getaddrinfo queda restaurado (puede volver a dar IPv6).
-        self.assertIs(socket.getaddrinfo, socket.getaddrinfo)
-
-
 @override_settings(
     EMAIL_BACKEND='apps.ingest.resend_email.ResendEmailBackend',
     RESEND_API_KEY='re_test_key',

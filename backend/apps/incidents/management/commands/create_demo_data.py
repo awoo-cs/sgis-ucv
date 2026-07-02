@@ -10,7 +10,7 @@ Uso:
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from datetime import timedelta, date
+from datetime import timedelta
 import random
 
 from apps.incidents.models import Incident, IncidentStatusHistory, IncidentComment
@@ -403,13 +403,6 @@ COMMENTS_JEFE = [
     'Solicitando reporte formal del incidente para la auditoría semestral.',
 ]
 
-STATUS_TRANSITIONS = {
-    'abierto':          [],
-    'en_investigacion': ['abierto'],
-    'resuelto':         ['abierto', 'en_investigacion'],
-    'cerrado':          ['abierto', 'en_investigacion', 'resuelto'],
-}
-
 TRANSITION_COMMENTS = {
     ('', 'abierto'):             'Incidente registrado y clasificado en el sistema.',
     ('abierto', 'en_investigacion'): [
@@ -495,15 +488,7 @@ class Command(BaseCommand):
             )
 
             # ── Historial de estados ──────────────────────────────────────
-            transitions = [('', 'abierto')] + [
-                (a, b) for a, b in zip(
-                    STATUS_TRANSITIONS[final_status],
-                    STATUS_TRANSITIONS[final_status][1:] + [final_status]
-                )
-            ]
-            # Construir la secuencia correcta
-            all_states = ['abierto'] + STATUS_TRANSITIONS[final_status][1:] if STATUS_TRANSITIONS[final_status] else ['abierto']
-            # Simplificar: secuencia desde abierto hasta final_status
+            # Secuencia desde 'abierto' hasta el estado final del incidente.
             state_sequence = ['abierto', 'en_investigacion', 'resuelto', 'cerrado']
             idx = state_sequence.index(final_status)
             path = state_sequence[:idx + 1]

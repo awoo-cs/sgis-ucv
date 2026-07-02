@@ -46,3 +46,6 @@ demo/
 
 # Memoria privada del agente (no versionar)
 MEMORY.md
+
+# Config y skills personales del agente de IA (no forman parte del proyecto)
+.claude/

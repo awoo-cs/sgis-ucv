@@ -1,8 +1,0 @@
-{
-  "name": "sgis-ucv-driver",
-  "type": "module",
-  "private": true,
-  "dependencies": {
-    "playwright": "^1.44.0"
-  }
-}

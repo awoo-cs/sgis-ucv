@@ -222,12 +222,11 @@ sgis-ucv/
 │           ├── detection.py                 ← Motor: 3 reglas → incidente + contención
 │           ├── notifications.py             ← Email de alerta + digest anti-saturación (Opción A)
 │           ├── resend_email.py              ← Backend de email por HTTP (Resend) — Railway bloquea SMTP
-│           ├── ipv4_email.py                ← Backend SMTP forzando IPv4 (referencia; no usar en Railway)
 │           ├── maintenance.py               ← reset_demo_data (limpia eventos/incidentes/contención/throttle)
 │           ├── serializers.py
 │           ├── views.py                     ← POST events (API-key) + GET feed (JWT) + reset (admin_ti)
 │           ├── urls.py
-│           └── tests.py                     ← 21 tests: detección, contención, throttle, email, reset
+│           └── tests.py                     ← Tests del motor: detección, contención, throttle, email, reset
 │
 ├── tools/                                   ← Kit de demo (solo stdlib, sin pip)
 │   ├── sensor.py                            ← Honeypot: escucha puertos y reporta (--replay, --firewall)
@@ -379,9 +378,8 @@ Al crearse un incidente automático, `apps/ingest/notifications.py` envía un **
 
 - **Anti-saturación (Opción A — digest por ventana):** el modelo singleton **`AlertThrottle`** (en BD, fila `pk=1`, consistente entre workers de gunicorn) hace que el **primer** incidente de una ráfaga notifique al instante; los siguientes dentro de `SOAR_ALERT_WINDOW_SECONDS` (default 300 s) se **acumulan** y se resumen en el próximo correo. Decisión atómica con `select_for_update`; el envío SMTP/HTTP va **fuera** de la transacción. `reset_demo` limpia el throttle.
 - **Envío por HTTP (Resend), NO SMTP — crítico:** **Railway bloquea los puertos SMTP de salida** (25/465/587), así que cualquier backend SMTP da `TimeoutError [Errno 110] Connection timed out`. Se envía por la **API HTTP de Resend** (puerto 443) con el backend custom **`apps/ingest/resend_email.py`** (`ResendEmailBackend`, solo stdlib). Detalle: hay que mandar un **`User-Agent` propio** o Cloudflare (escudo de Resend) responde `403 error 1010`.
-  - Existe además `apps/ingest/ipv4_email.py` (`IPv4EmailBackend`): fuerza IPv4 para SMTP. Quedó como referencia, pero **no resuelve** el bloqueo de SMTP de Railway; el camino bueno es Resend.
 - **Resend free sin dominio propio** solo envía **a la dirección con la que te registraste** (por eso la cuenta se registró con `leopb77@gmail.com`). Para enviar a otros destinatarios habría que verificar un dominio en Resend.
-- **Tests:** `apps.ingest` (21 tests) cubre detección, contención, throttle, release, reset y los dos backends de email.
+- **Tests:** `apps.ingest` cubre detección, contención, throttle, release, reset y el backend de email HTTP (Resend).
 
 ### Entorno DEV en la nube (Railway + Vercel) — para pruebas sin tocar producción
 
