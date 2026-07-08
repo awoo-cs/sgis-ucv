@@ -19,6 +19,16 @@
 
     <div class="nav-div" />
 
+    <button
+      class="theme-btn"
+      @click="theme.toggle()"
+      :title="theme.mode === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
+    >
+      <v-icon size="16">{{ theme.mode === 'dark' ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
+    </button>
+
+    <div class="nav-div" />
+
     <div class="role-tag">{{ auth.user?.role_display }}</div>
 
     <div class="nav-div" />
@@ -38,8 +48,10 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 
 const auth = useAuthStore()
+const theme = useThemeStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -149,6 +161,19 @@ function handleLogout() { auth.logout(); router.push('/login') }
   font-weight: 500;
   color: var(--ink-2);
 }
+
+.theme-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 0.5rem;
+  color: var(--ink-3);
+  transition: border-color var(--t), color var(--t), box-shadow var(--t);
+}
+.theme-btn:hover { border-color: var(--border-hi); color: var(--ink); box-shadow: var(--glow); }
+.theme-btn :deep(.v-icon) { color: inherit !important; }
 
 .logout-btn {
   width: 48px; height: 52px;

@@ -10,7 +10,7 @@ export default createVuetify({
   directives,
   icons: { defaultSet: 'mdi', aliases, sets: { mdi } },
   theme: {
-    defaultTheme: 'sgis',
+    defaultTheme: localStorage.getItem('sgis_theme') === 'light' ? 'sgis' : 'sgisDark',
     themes: {
       sgis: {
         dark: false,
@@ -26,6 +26,23 @@ export default createVuetify({
           success:         '#2D9A46',
           'on-background': '#111111',
           'on-surface':    '#111111',
+          'on-primary':    '#FFFFFF',
+        },
+      },
+      sgisDark: {
+        dark: true,
+        colors: {
+          background:      '#07040F',
+          surface:         '#0E0920',
+          primary:         '#8B5CF6',
+          secondary:       '#8F87B8',
+          accent:          '#38BDF8',
+          error:           '#F87171',
+          warning:         '#FBBF24',
+          info:            '#38BDF8',
+          success:         '#34D399',
+          'on-background': '#F0EDFA',
+          'on-surface':    '#F0EDFA',
           'on-primary':    '#FFFFFF',
         },
       },
